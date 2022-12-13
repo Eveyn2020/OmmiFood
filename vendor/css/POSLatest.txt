@@ -1,0 +1,399 @@
+ဒါက Orderdetailservice မှာရေးရန်
+
+  public List<OrderDetailViewModel> GetReportYesterdayOrders()
+        {
+            DateTime nowdate = DateTime.Now.Date;
+            DateTime yesterday = DateTime.Today.AddDays(-1);
+            List<OrderDetailViewModel> model = _context.OrderDetails.Join(
+                _context.Orders,
+                d => d.OrderId,
+                r => r.OrderId,
+                (d, r) => new { d, r }).Join(
+                _context.Products,
+                dr => dr.d.ItemId,
+                p => p.Id,
+                (dr, p) => new { dr, p })
+                .Where(drp => SqlFunctions.DatePart("year", drp.dr.r.OrderDate) == SqlFunctions.DatePart("year", yesterday))
+                  .Where(drp => SqlFunctions.DatePart("dayofyear", drp.dr.r.OrderDate) == SqlFunctions.DatePart("dayofyear", yesterday))
+                .Select(drp => new OrderDetailViewModel
+                {
+
+                    OrderDetailId = drp.dr.d.OrderDetailId,
+                    OrderId = drp.dr.d.OrderId,
+                    ItemId = drp.p.Id,
+                    ProductName = drp.p.ProductName,
+                    OrderNumber = drp.dr.d.OrderNumber,
+                    OrderDate = drp.dr.r.OrderDate,
+                    Total = drp.dr.d.Total,
+                    Quantity = drp.dr.d.Quantity,
+                    UnitPrice = drp.dr.d.UnitPrice,
+
+                })
+                .ToList();
+            return model;
+        }
+____________________________________________________________________________________
+ဒါက product Controller မှာရေးရန်
+
+  public ActionResult Dashboard()
+        {
+            #region calendar
+            GregorianCalendar pc = new GregorianCalendar();
+            var thisDate = DateTime.Now;
+            ViewBag.dayName = pc.GetDayOfWeek(thisDate);
+            var month = pc.GetMonth(thisDate);
+            switch (month)
+            {
+
+                case 1:
+                    ViewBag.Month = "January";
+                    break;
+                case 2:
+                    ViewBag.Month = "February";
+                    break;
+                case 3:
+                    ViewBag.Month = "March";
+                    break;
+                case 4:
+                    ViewBag.Month = "April";
+                    break;
+                case 5:
+                    ViewBag.Month = "May";
+                    break;
+                case 6:
+                    ViewBag.Month = "Jun";
+                    break;
+                case 7:
+                    ViewBag.Month = "July";
+                    break;
+                case 8:
+                    ViewBag.Month = "August";
+                    break;
+                case 9:
+                    ViewBag.Month = "September";
+                    break;
+                case 10:
+                    ViewBag.Month = "October";
+                    break;
+                case 11:
+                    ViewBag.Month = "November";
+                    break;
+                case 12:
+                    ViewBag.Month = "December";
+                    break;
+            }
+            ViewBag.Day = pc.GetDayOfMonth(thisDate);
+            ViewBag.Year = pc.GetYear(thisDate);
+            #endregion
+
+            #region dailybalanceAmount
+            OrderDetailService orderDetailService = new OrderDetailService();
+            List<OrderDetailViewModel> data = orderDetailService.GetReportOrders();
+            double totalAllitem=0;
+            foreach(var item in data)
+            {
+                totalAllitem += item.Total;
+            }
+            ViewBag.TotalAmount = totalAllitem;
+            #endregion
+
+            #region yesterdaybalanceAmount
+            OrderDetailService orderDetailServiceForYesterday = new OrderDetailService();
+            List<OrderDetailViewModel> dataForYes = orderDetailServiceForYesterday.GetReportYesterdayOrders();
+            double totalAllitemForYes = 0;
+            foreach (var item in dataForYes)
+            {
+                totalAllitemForYes += item.Total;
+            }
+            ViewBag.TotalYesAmount = totalAllitemForYes;
+            #endregion
+
+            #region ItemCount
+            ViewBag.Items = _productService.GetProductList().Count();
+            
+            #endregion
+
+
+            return View();
+        }
+
+________________________________________________________________________________
+ဒါက view မှာရေးရန်  design က သိပ်အလုပ် မလုပ်သေးလို့ card design ကို ပြင်ရန်နည်းနည်းလို
+<div class="container-fluid">
+
+    <div class="row">
+
+        <!-- Earnings (Monthly) Card Example -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Today Income Balance!
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.TotalAmount<span>MMK</span></div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings (Monthly) Card Example -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                               Yesterday In Come Balance
+                            </div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                @if (ViewBag.TotalYesAmount == null)
+                                {
+                                    <text>0 MMK</text>
+                                }
+                                @if (ViewBag.TotalYesAmount != null)
+                                {
+                                    @ViewBag.TotalYesAmount<span> MMK</span>
+                                }
+
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Earnings (Monthly) Card Example -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Total Product Item.
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                              
+                                    @ViewBag.Items<span> Items</span>
+                               
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Pending Requests Card Example -->
+       
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    Date!
+                                </div>
+                                <div class="h6 mb-0 font-weight-bold text-gray-800">@ViewBag.Month,@ViewBag.Day,@ViewBag.Year</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+       
+       
+
+    </div>
+
+
+
+</div>
+
+___________________________________________________
+ဒါက product controller မှာ ရေးရန် 
+  public JsonResult DeleteProduct(Guid itemId)
+        {
+            ShoppingCardViewModel viewModel = new ShoppingCardViewModel();
+            var item = _context.Products.Where(p => p.Id == itemId).Select(p => p).FirstOrDefault();
+            
+            listOfShoppingCartModel = Session["CardItem"] as List<ShoppingCardViewModel>;
+            if (listOfShoppingCartModel.Any(model => model.ItemId == itemId))
+            {
+                viewModel = listOfShoppingCartModel.Where(c => c.ItemId == itemId).Select(c => c).FirstOrDefault();
+                listOfShoppingCartModel.Remove(viewModel);
+                _context.SaveChanges();
+            }
+            var data = listOfShoppingCartModel;
+            Session["CardItem"] = listOfShoppingCartModel;
+            return Json(data, JsonRequestBehavior.AllowGet);
+        }
+
+_________________________________________________________________________
+ဒါက All product.cshtml မှာ ပြင်ရန်
+ အကုန် မကူးပါနဲ့  <td id=" + orderId + " onclick=deleteProduct(this)><h5 style=color:red;>X</h5></td> ကို method တွေထဲက for loop ရဲ့
+  $(".selected-cons2").append မှာ ထပ်ထည့် ရန် အောက်က script file နဲ့ တိုက်ကြည့်ပါ
+
+  <script type="text/javascript">
+    
+        function AddToInvoice(item) {
+            var itemId = item.id;
+         
+            var formData = new FormData();
+            formData.append("itemId", itemId);
+            $.ajax({
+                async: true,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                url: '/Product/ShowItem',
+                success: function (data) {
+                    console.log();
+                   // var counter = 0;
+                   // var qtyCal = 1;
+                   // var j = 0;
+
+                   // j++;
+                   // var qtyid = 'quantity' + j;
+                   // var foodCost = 'cost' + j;
+                    var name, itemQty, totalPrice, orderId;
+                    var totalAmount = 0;
+                  
+                    $(".selected-cons2").empty();
+                    $(".selected-cons2").append("<table cellpadding="+"30"+"><tr><th></th><th>ProductName</th><th>Qty</th><th>Price</th></tr>")
+                    for (var i = 0; i < data.length; i++)
+                    {
+                        orderId = data[i].ItemId;
+                        name = data[i].ProductName;
+                         itemQty = data[i].Qty;
+                         totalPrice = data[i].TotalPrice;
+                        
+                         totalAmount += totalPrice;
+                         $(".selected-cons2").append("<tr><td id=" + orderId + " onclick=deleteProduct(this)><h5 style=color:red;>X</h5></td><td>" + name + "</td><td>" + itemQty + "</td><td>" + totalPrice + "</td></tr>")
+                    }
+                   
+                    $(".selected-cons2").append("<tr><td colspan="+2+"><h3>TotalAmount</h3></td><td colspan="+3+"><h3>"+totalAmount+"</h3></td></tr><tr><td colspan="+5+"></td></tr>")
+
+                },
+                error: function () {
+                    alert("There is some problem.");
+                }
+
+
+
+            });
+            //$(this).find('.added-message').show().delay('350').fadeOut();
+            //$('#consPlaceholder').hide();
+
+           
+
+        };
+        function Checkout() {
+            var formData = new FormData();
+            $.ajax({
+                async: true,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                url: '/Product/SaveOrder',
+                success: function (data) {
+
+                    $('.selected-cons2').hide();
+                    document.location.reload();
+                },
+                error: function () {
+                    alert("There is some problem.");
+                }
+            });
+
+        }
+
+        function decreaseItem(item)
+        {
+            var itemId = item.id;
+          
+            console.log(itemId);
+            var formData = new FormData();
+            formData.append("itemId", itemId);
+            $.ajax({
+                async: true,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                url: '/Product/DecreaseItem',
+                success: function (data) {
+                    var name, itemQty, totalPrice, orderId;
+                    var totalAmount = 0;
+                    $(".selected-cons2").empty();
+                    $(".selected-cons2").append("<table cellpadding=" + 15 + "><tr><th></th><th>ProductName</th><th>Qty</th><th>Price</th></tr>")
+                    for (var i = 0; i < data.length; i++) {
+                        orderId=data[i].ItemId;
+                        name = data[i].ProductName;
+                        itemQty = data[i].Qty;
+                        totalPrice = data[i].TotalPrice;
+                        totalAmount += totalPrice;
+                        $(".selected-cons2").append("<tr><td id=" + orderId + " onclick=deleteProduct(this)><h5 style=color:red;>X</h5></td><td>" + name + "</td><td>" + itemQty + "</td><td>" + totalPrice + "</td></tr>")
+                    }
+
+                    $(".selected-cons2").append("<tr><td colspan=" + 2 + "><h3>TotalAmount</h3></td><td colspan=" + 3 + "><h3>" + totalAmount + "</h3></td></tr><tr><td colspan=" + 5 + "></td></tr>")
+
+
+                },
+                error: function () {
+                    alert("There is some problem.");
+                }
+
+            });
+        }
+        function deleteProduct(item) {
+            var itemId = item.id;
+
+            console.log(itemId);
+            var formData = new FormData();
+            formData.append("itemId", itemId);
+            $.ajax({
+                async: true,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                url: '/Product/DeleteProduct',
+                success: function (data) {
+                    var name, itemQty, totalPrice, orderId;
+                    var totalAmount = 0;
+                    $(".selected-cons2").empty();
+                    $(".selected-cons2").append("<table cellpadding=" + 15 + "><tr><th></th><th>ProductName</th><th>Qty</th><th>Price</th></tr>")
+                    for (var i = 0; i < data.length; i++) {
+                        orderId = data[i].ItemId;
+                        name = data[i].ProductName;
+                        itemQty = data[i].Qty;
+                        totalPrice = data[i].TotalPrice;
+                        totalAmount += totalPrice;
+                        $(".selected-cons2").append("<tr><td id=" + orderId + " onclick=deleteProduct(this)><h5 style=color:red;>X</h5></td><td>" + name + "</td><td>" + itemQty + "</td><td>" + totalPrice + "</td></tr>")
+                    }
+
+                    $(".selected-cons2").append("<tr><td colspan=" + 2 + "><h3>TotalAmount</h3></td><td colspan=" + 3 + "><h3>" + totalAmount + "</h3></td></tr><tr><td colspan=" + 5 + "></td></tr>")
+
+
+                },
+                error: function () {
+                    alert("There is some problem.");
+                }
+
+            });
+        }
+    </script>
